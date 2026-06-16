@@ -1,3 +1,5 @@
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     const token = localStorage.getItem('nexus_token');
     
@@ -7,7 +9,8 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
 
-    const response = await fetch(url, { ...options, headers });
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+    const response = await fetch(fullUrl, { ...options, headers });
     
     if (response.status === 401 || response.status === 403) {
         // Handle unauthorized (e.g. token expired or invalid)
