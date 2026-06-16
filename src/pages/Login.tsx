@@ -24,7 +24,8 @@ export default function Login() {
         setLoading(true)
         
         try {
-            const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+            const cleanBaseUrl = API_BASE_URL.replace(/\/+$/, '');
+            const res = await fetch(`${cleanBaseUrl}/api/auth/signup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
@@ -46,7 +47,8 @@ export default function Login() {
         setLoading(true)
         
         try {
-            const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+            const cleanBaseUrl = API_BASE_URL.replace(/\/+$/, '');
+            const res = await fetch(`${cleanBaseUrl}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
