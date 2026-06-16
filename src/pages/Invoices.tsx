@@ -1,5 +1,5 @@
+import { toast } from "sonner";
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Card, CardTitle } from '@/components/ui/card'
 import { AddInvoiceModal } from '@/components/dashboard/AddInvoiceModal'
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Search, ChevronLeft, ChevronRight, FileText, Trash, User, Download } from "lucide-react"
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+
+import { fetchWithAuth } from '@/lib/api'
 
 const ITEMS_PER_PAGE = 4
 
@@ -20,28 +22,29 @@ export default function Invoices() {
 
     async function fetchInvoices() {
         setLoading(true)
-        const from = (page - 1) * ITEMS_PER_PAGE
-        const to = from + ITEMS_PER_PAGE - 1
 
-        let query = supabase
-            .from('invoices')
-            .select('*, customers (full_name, email, company)', { count: 'exact' }) // Fetch more customer details
-            .order('created_at', { ascending: false })
-            .range(from, to)
+        try {
+            const url = new URL(window.location.origin + '/api/invoices')
+            url.searchParams.append('page', page.toString())
+            url.searchParams.append('size', ITEMS_PER_PAGE.toString())
+            if (searchTerm) {
+                url.searchParams.append('search', searchTerm)
+            }
 
-        if (searchTerm) {
-            query = supabase
-                .from('invoices')
-                .select('*, customers (full_name, email, company)', { count: 'exact' })
-                .or(`invoice_number.ilike.%${searchTerm}%,status.ilike.%${searchTerm}%`)
-                .range(0, ITEMS_PER_PAGE - 1)
+            const res = await fetchWithAuth(url.toString())
+            if (!res.ok) throw new Error('Failed to fetch invoices')
+            
+            const responseData = await res.json()
+            
+            setInvoices(responseData.data || [])
+            const total = responseData.count || 0
+            const calculatedPages = Math.ceil(total / ITEMS_PER_PAGE)
+            setTotalPages(calculatedPages > 0 ? calculatedPages : 1)
+        } catch (error) {
+            console.error("Error fetching invoices:", error)
+        } finally {
+            setLoading(false)
         }
-
-        const { data, count } = await query
-        setInvoices(data || [])
-        const total = count || 0
-        setTotalPages(Math.ceil(total / ITEMS_PER_PAGE) || 1)
-        setLoading(false)
     }
 
     useEffect(() => {
@@ -50,9 +53,13 @@ export default function Invoices() {
 
     const deleteInvoice = async (id: string) => {
         if (!confirm("Are you sure you want to delete this invoice?")) return
-        const { error } = await supabase.from('invoices').delete().eq('id', id)
-        if (error) alert(error.message)
-        else fetchInvoices()
+        try {
+            const res = await fetchWithAuth(`/api/invoices/${id}`, { method: 'DELETE' })
+            if (!res.ok) throw new Error('Failed to delete invoice')
+            fetchInvoices()
+        } catch (error: any) {
+            toast.error(error.message)
+        }
     }
 
     // 1. THE NEW PDF GENERATION FUNCTION

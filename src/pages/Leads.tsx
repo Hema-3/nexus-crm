@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Card, CardTitle } from '@/components/ui/card'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -7,6 +6,8 @@ import { AddLeadModal } from "@/components/dashboard/AddLeadModal"
 import { LeadActions } from "@/components/dashboard/LeadActions"
 import { Input } from "@/components/ui/input"
 import { Search, ChevronLeft, ChevronRight } from "lucide-react"
+
+import { fetchWithAuth } from '@/lib/api'
 
 const ITEMS_PER_PAGE = 4 // Changed to 4 for testing
 
@@ -19,30 +20,29 @@ export default function Leads() {
 
     async function fetchLeads() {
         setLoading(true)
-        const from = (page - 1) * ITEMS_PER_PAGE
-        const to = from + ITEMS_PER_PAGE - 1
 
-        let query = supabase
-            .from('leads')
-            .select('*', { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range(from, to)
+        try {
+            const url = new URL(window.location.origin + '/api/leads')
+            url.searchParams.append('page', page.toString())
+            url.searchParams.append('size', ITEMS_PER_PAGE.toString())
+            if (searchTerm) {
+                url.searchParams.append('search', searchTerm)
+            }
 
-        if (searchTerm) {
-            query = supabase
-                .from('leads')
-                .select('*', { count: 'exact' })
-                .or(`name.ilike.%${searchTerm}%,status.ilike.%${searchTerm}%`)
-                .range(0, ITEMS_PER_PAGE - 1)
+            const res = await fetchWithAuth(url.toString())
+            if (!res.ok) throw new Error('Failed to fetch leads')
+            
+            const responseData = await res.json()
+            
+            setLeads(responseData.data || [])
+            const total = responseData.count || 0
+            const calculatedPages = Math.ceil(total / ITEMS_PER_PAGE)
+            setTotalPages(calculatedPages > 0 ? calculatedPages : 1)
+        } catch (error) {
+            console.error("Error fetching leads:", error)
+        } finally {
+            setLoading(false)
         }
-
-        const { data, count, error } = await query
-
-        if (!error) {
-            setLeads(data || [])
-            if (count) setTotalPages(Math.ceil(count / ITEMS_PER_PAGE))
-        }
-        setLoading(false)
     }
 
     useEffect(() => {

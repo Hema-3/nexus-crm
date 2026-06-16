@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { AddCustomerModal } from '@/components/dashboard/AddCustomerModal'
 import { CustomerActions } from "@/components/dashboard/CustomerActions"
@@ -7,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { Link } from "react-router-dom"
+
+import { fetchWithAuth } from '@/lib/api'
 
 // LOWER THIS NUMBER TO TEST PAGINATION (e.g. 4)
 const ITEMS_PER_PAGE = 8
@@ -23,35 +24,28 @@ export default function Customers() {
         async function fetchCustomers() {
             setLoading(true)
 
-            const from = (page - 1) * ITEMS_PER_PAGE
-            const to = from + ITEMS_PER_PAGE - 1
+            try {
+                const url = new URL(window.location.origin + '/api/customers')
+                url.searchParams.append('page', page.toString())
+                url.searchParams.append('size', ITEMS_PER_PAGE.toString())
+                if (searchTerm) {
+                    url.searchParams.append('search', searchTerm)
+                }
 
-            let query = supabase
-                .from('customers')
-                .select('*', { count: 'exact' })
-                .order('created_at', { ascending: false })
-                .range(from, to)
-
-            if (searchTerm) {
-                query = supabase
-                    .from('customers')
-                    .select('*', { count: 'exact' })
-                    .or(`full_name.ilike.%${searchTerm}%,company.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-                    .range(0, ITEMS_PER_PAGE - 1) // Reset range for search
-            }
-
-            const { data, count, error } = await query
-
-            if (error) {
-                console.log("Error fetching customers:", error)
-            } else {
-                setCustomers(data || [])
-                // Robust Page Calculation
-                const total = count || 0
+                const res = await fetchWithAuth(url.toString())
+                if (!res.ok) throw new Error('Failed to fetch customers')
+                
+                const responseData = await res.json()
+                
+                setCustomers(responseData.data || [])
+                const total = responseData.count || 0
                 const calculatedPages = Math.ceil(total / ITEMS_PER_PAGE)
                 setTotalPages(calculatedPages > 0 ? calculatedPages : 1)
+            } catch (error) {
+                console.error("Error fetching customers:", error)
+            } finally {
+                setLoading(false)
             }
-            setLoading(false)
         }
 
         fetchCustomers()
@@ -85,7 +79,7 @@ export default function Customers() {
                                 <div className="space-y-1">
                                     <CardTitle className="text-sm font-medium">
                                         <Link to={`/customers/${customer.id}`} className="hover:underline hover:text-primary cursor-pointer">
-                                            {customer.full_name}
+                                            {customer.fullName || customer.full_name}
                                         </Link>
                                     </CardTitle>
                                     <span className="px-2 py-0.5 rounded text-[10px] bg-gray-100 text-gray-800 uppercase font-bold">

@@ -1,25 +1,11 @@
+import { toast } from "sonner";
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
-import { MoreHorizontal, Trash, Pencil } from "lucide-react"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
-import { EditCustomerModal } from "./EditCustomerModal" // <--- Import the new modal
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
+import { MoreHorizontal, Pencil, Trash } from "lucide-react"
+import { EditCustomerModal } from "./EditCustomerModal"
 
 // We need to pass the full customer object now, not just ID
 export function CustomerActions({ customer, onUpdated }: { customer: any, onUpdated: () => void }) {
@@ -27,11 +13,16 @@ export function CustomerActions({ customer, onUpdated }: { customer: any, onUpda
     const [openEdit, setOpenEdit] = useState(false) // State for Edit Modal
 
     const handleDelete = async () => {
-        const { error } = await supabase.from('customers').delete().eq('id', customer.id)
-        if (error) alert(error.message)
-        else {
+        try {
+            const res = await fetchWithAuth(`/api/customers/${customer.id}`, {
+                method: 'DELETE'
+            })
+            if (!res.ok) throw new Error('Failed to delete customer')
+            
             setOpenDelete(false)
             onUpdated()
+        } catch (error: any) {
+            toast.error(error.message)
         }
     }
 

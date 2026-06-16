@@ -1,5 +1,6 @@
+import { toast } from "sonner";
 import { useState, useEffect } from "react"
-import { supabase } from "@/lib/supabase"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,8 +26,15 @@ export function AddTicketModal({ onTicketAdded }: { onTicketAdded: () => void })
 
     useEffect(() => {
         async function getCustomers() {
-            const { data } = await supabase.from('customers').select('id, full_name')
-            setCustomers(data || [])
+            try {
+                const res = await fetchWithAuth('/api/customers?size=100')
+                if (res.ok) {
+                    const json = await res.json()
+                    setCustomers(json.data || [])
+                }
+            } catch (e) {
+                console.error(e)
+            }
         }
         if (open) getCustomers()
     }, [open])
@@ -35,16 +43,26 @@ export function AddTicketModal({ onTicketAdded }: { onTicketAdded: () => void })
         e.preventDefault()
         setLoading(true)
 
-        const { error } = await supabase.from("tickets").insert([formData])
-
-        setLoading(false)
-
-        if (error) {
-            alert("Error: " + error.message)
-        } else {
+        try {
+            const payload = {
+                title: formData.title,
+                priority: formData.priority,
+                status: formData.status,
+                description: formData.description,
+                customerId: parseInt(formData.customer_id)
+            }
+            const res = await fetchWithAuth('/api/tickets', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            if (!res.ok) throw new Error("Failed to create ticket")
             setOpen(false)
             setFormData({ title: "", description: "", priority: "Medium", status: "Open", customer_id: "" })
             onTicketAdded()
+        } catch (error: any) {
+            toast.error("Error: " + error.message)
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -75,7 +93,7 @@ export function AddTicketModal({ onTicketAdded }: { onTicketAdded: () => void })
                             <SelectTrigger><SelectValue placeholder="Select a customer" /></SelectTrigger>
                             <SelectContent>
                                 {customers.map(c => (
-                                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                                    <SelectItem key={c.id} value={c.id.toString()}>{c.fullName}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>

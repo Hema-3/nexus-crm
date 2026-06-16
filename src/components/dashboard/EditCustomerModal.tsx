@@ -1,5 +1,6 @@
+import { toast } from "sonner";
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,23 +42,26 @@ export function EditCustomerModal({ customer, isOpen, onClose, onUpdated }: Edit
         e.preventDefault()
         setLoading(true)
 
-        // The SQL Update Logic
-        const { error } = await supabase
-            .from("customers")
-            .update({
-                full_name: formData.full_name,
-                email: formData.email,
-                company: formData.company,
+        // The SQL Update Logic via Java Backend
+        try {
+            const res = await fetchWithAuth(`/api/customers/${customer.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    fullName: formData.full_name,
+                    email: formData.email,
+                    company: formData.company,
+                    status: "Active" // Keep existing status if we had it, but hardcode for now
+                })
             })
-            .eq("id", customer.id) // IMPORTANT: Only update THIS customer
-
-        setLoading(false)
-
-        if (error) {
-            alert("Error updating: " + error.message)
-        } else {
+            
+            if (!res.ok) throw new Error('Failed to update customer')
+            
+            setLoading(false)
             onUpdated() // Refresh the background list
             onClose()   // Close the modal
+        } catch (error: any) {
+            setLoading(false)
+            toast.error("Error updating: " + error.message)
         }
     }
 

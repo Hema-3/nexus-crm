@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import {
     DropdownMenu,
@@ -15,7 +15,16 @@ export function TicketActions({ ticket, onUpdated }: { ticket: any, onUpdated: (
 
     const updateStatus = async (newStatus: string) => {
         setLoading(true)
-        await supabase.from('tickets').update({ status: newStatus }).eq('id', ticket.id)
+        try {
+            const ticketData = { ...ticket, status: newStatus }
+            delete ticketData.customers // Remove joined data before sending
+            await fetchWithAuth(`/api/tickets/${ticket.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(ticketData)
+            })
+        } catch (e) {
+            console.error(e)
+        }
         setLoading(false)
         onUpdated() // Refresh the parent list
     }
@@ -23,7 +32,11 @@ export function TicketActions({ ticket, onUpdated }: { ticket: any, onUpdated: (
     const deleteTicket = async () => {
         if (!confirm("Are you sure you want to delete this ticket?")) return
         setLoading(true)
-        await supabase.from('tickets').delete().eq('id', ticket.id)
+        try {
+            await fetchWithAuth(`/api/tickets/${ticket.id}`, { method: 'DELETE' })
+        } catch (e) {
+            console.error(e)
+        }
         setLoading(false)
         onUpdated()
     }

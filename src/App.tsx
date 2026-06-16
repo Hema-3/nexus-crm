@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { Toaster } from 'sonner'
 import Dashboard from "@/pages/Dashboard"
 import Customers from "@/pages/Customers"
 import Login from "@/pages/Login"
@@ -33,6 +34,7 @@ function App() {
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
+      <Toaster position="top-right" richColors />
     </BrowserRouter>
   )
 }

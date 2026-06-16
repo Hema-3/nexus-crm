@@ -1,5 +1,6 @@
+import { toast } from "sonner";
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { fetchWithAuth } from "@/lib/api"
 import { MoreHorizontal, Trash, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditLeadModal } from "./EditLeadModal"
@@ -26,10 +27,16 @@ export function LeadActions({ lead, onUpdated }: any) {
     const [openEdit, setOpenEdit] = useState(false)
 
     const handleDelete = async () => {
-        const { error } = await supabase.from('leads').delete().eq('id', lead.id)
-        if (!error) {
+        try {
+            const res = await fetchWithAuth(`/api/leads/${lead.id}`, {
+                method: 'DELETE'
+            })
+            if (!res.ok) throw new Error('Failed to delete lead')
+            
             setOpenDelete(false)
             onUpdated()
+        } catch (error: any) {
+            toast.error(error.message)
         }
     }
 

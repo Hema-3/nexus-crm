@@ -1,5 +1,5 @@
+import { toast } from "sonner";
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,40 +14,52 @@ export default function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
 
-    // 1. NEW FUNCTION: Handle Google Login
     const handleGoogleLogin = async () => {
-        setLoading(true)
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: window.location.origin // Redirects back to dashboard after login
-            }
-        })
-        if (error) alert(error.message)
-        // Note: setLoading(false) isn't needed here because the page will redirect away
+        toast.error("Google login is currently disabled since we migrated to a custom backend.")
     }
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) {
-            alert(error.message)
-        } else {
-            alert('Check your email for the confirmation link!')
+        
+        try {
+            const res = await fetch('/api/auth/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to sign up')
+            
+            toast.success('Signup successful! You can now log in.')
+            // Auto switch to login tab? We can just alert for now.
+        } catch (err: any) {
+            toast.error(err.message)
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
     }
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) {
-            alert(error.message)
-            setLoading(false)
-        } else {
+        
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Invalid credentials')
+            
+            // Save JWT token
+            localStorage.setItem('nexus_token', data.token)
+            localStorage.setItem('nexus_user', email)
             navigate('/')
+        } catch (err: any) {
+            toast.error(err.message)
+            setLoading(false)
         }
     }
 

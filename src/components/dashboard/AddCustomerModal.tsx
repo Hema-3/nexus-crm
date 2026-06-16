@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,25 +29,31 @@ export function AddCustomerModal({ onCustomerAdded }: { onCustomerAdded: () => v
         e.preventDefault()
         setLoading(true)
 
-        // 1. Send data to Supabase
-        const { error } = await supabase.from("customers").insert([
-            {
-                full_name: formData.full_name,
-                email: formData.email,
-                company: formData.company,
-                status: "active", // Default status
-            },
-        ])
+        // 1. Send data to Java Backend
+        try {
+            const res = await fetchWithAuth('/api/customers', {
+                method: 'POST',
+                body: JSON.stringify({
+                    fullName: formData.full_name,
+                    email: formData.email,
+                    company: formData.company,
+                    status: "Active"
+                })
+            })
+            
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Failed to create customer');
+            }
 
-        setLoading(false)
-
-        if (error) {
-            alert("Error adding customer: " + error.message)
-        } else {
-            // 2. Success! Close modal and refresh list
+            setLoading(false)
             setOpen(false)
             setFormData({ full_name: "", email: "", company: "" }) // Reset form
+            toast.success("Customer added successfully!")
             onCustomerAdded() // Tell the parent page to refresh
+        } catch (error: any) {
+            setLoading(false)
+            toast.error(error.message)
         }
     }
 

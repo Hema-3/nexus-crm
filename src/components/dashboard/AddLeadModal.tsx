@@ -1,5 +1,6 @@
+import { toast } from "sonner";
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -31,22 +32,25 @@ export function AddLeadModal({ onLeadAdded }: { onLeadAdded: () => void }) {
         e.preventDefault()
         setLoading(true)
 
-        const { error } = await supabase.from("leads").insert([
-            {
-                name: formData.name,
-                value: Number(formData.value), // Convert string to number for DB
-                status: formData.status,
-            },
-        ])
-
-        setLoading(false)
-
-        if (error) {
-            alert("Error adding lead: " + error.message)
-        } else {
+        try {
+            const res = await fetchWithAuth('/api/leads', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: formData.name,
+                    value: Number(formData.value),
+                    status: formData.status
+                })
+            })
+            
+            if (!res.ok) throw new Error('Failed to create lead')
+            
+            setLoading(false)
             setOpen(false)
             setFormData({ name: "", value: "", status: "New" }) // Reset form
             onLeadAdded()
+        } catch (error: any) {
+            setLoading(false)
+            toast.error("Error adding lead: " + error.message)
         }
     }
 

@@ -1,5 +1,6 @@
+import { toast } from "sonner";
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,22 +30,24 @@ export function EditLeadModal({ lead, isOpen, onClose, onUpdated }: any) {
         e.preventDefault()
         setLoading(true)
 
-        const { error } = await supabase
-            .from("leads")
-            .update({
-                name: formData.name,
-                value: Number(formData.value),
-                status: formData.status,
+        try {
+            const res = await fetchWithAuth(`/api/leads/${lead.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    name: formData.name,
+                    value: Number(formData.value),
+                    status: formData.status
+                })
             })
-            .eq("id", lead.id)
-
-        setLoading(false)
-
-        if (error) {
-            alert("Error: " + error.message)
-        } else {
+            
+            if (!res.ok) throw new Error('Failed to update lead')
+            
+            setLoading(false)
             onUpdated()
             onClose()
+        } catch (error: any) {
+            setLoading(false)
+            toast.error("Error: " + error.message)
         }
     }
 

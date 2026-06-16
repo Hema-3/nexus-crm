@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
 import {
@@ -44,7 +45,7 @@ export function ChangePasswordModal() {
         } else {
             setOpen(false)
             setPasswords({ new: "", confirm: "" })
-            alert("Success! Your password has been updated.")
+            toast.success("Success! Your password has been updated.")
         }
         setLoading(false)
     }

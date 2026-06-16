@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -7,6 +6,8 @@ import { AddTicketModal } from "@/components/dashboard/AddTicketModal"
 import { TicketActions } from "@/components/dashboard/TicketActions"
 import { Search, AlertCircle, CheckCircle2, Clock, ChevronLeft, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
+
+import { fetchWithAuth } from '@/lib/api'
 
 const ITEMS_PER_PAGE = 8
 
@@ -19,28 +20,29 @@ export default function Tickets() {
 
     async function fetchTickets() {
         setLoading(true)
-        const from = (page - 1) * ITEMS_PER_PAGE
-        const to = from + ITEMS_PER_PAGE - 1
 
-        let query = supabase
-            .from('tickets')
-            .select('*, customers (full_name, company)', { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range(from, to)
+        try {
+            const url = new URL(window.location.origin + '/api/tickets')
+            url.searchParams.append('page', page.toString())
+            url.searchParams.append('size', ITEMS_PER_PAGE.toString())
+            if (searchTerm) {
+                url.searchParams.append('search', searchTerm)
+            }
 
-        if (searchTerm) {
-            query = supabase
-                .from('tickets')
-                .select('*, customers (full_name, company)', { count: 'exact' })
-                .ilike('title', `%${searchTerm}%`)
-                .range(0, ITEMS_PER_PAGE - 1)
+            const res = await fetchWithAuth(url.toString())
+            if (!res.ok) throw new Error('Failed to fetch tickets')
+            
+            const responseData = await res.json()
+            
+            setTickets(responseData.data || [])
+            const total = responseData.count || 0
+            const calculatedPages = Math.ceil(total / ITEMS_PER_PAGE)
+            setTotalPages(calculatedPages > 0 ? calculatedPages : 1)
+        } catch (error) {
+            console.error("Error fetching tickets:", error)
+        } finally {
+            setLoading(false)
         }
-
-        const { data, count } = await query
-        setTickets(data || [])
-        const total = count || 0
-        setTotalPages(Math.ceil(total / ITEMS_PER_PAGE) || 1)
-        setLoading(false)
     }
 
     useEffect(() => {
@@ -93,7 +95,7 @@ export default function Tickets() {
                                             </Badge>
                                             <span className="text-[10px] text-muted-foreground flex items-center">
                                                 <Clock className="w-3 h-3 mr-1" />
-                                                {new Date(ticket.created_at).toLocaleDateString()}
+                                                {new Date(ticket.createdAt).toLocaleDateString()}
                                             </span>
                                         </div>
                                     </div>
@@ -113,8 +115,8 @@ export default function Tickets() {
 
                                 <div className="flex justify-between items-center border-t pt-2 mt-auto">
                                     <div className="text-xs truncate max-w-[100px]">
-                                        <p className="font-medium text-slate-900 truncate">{ticket.customers?.full_name}</p>
-                                        <p className="text-[10px] text-slate-500 truncate">{ticket.customers?.company}</p>
+                                        <p className="font-medium text-slate-900 truncate">{ticket.customer?.fullName}</p>
+                                        <p className="text-[10px] text-slate-500 truncate">{ticket.customer?.company}</p>
                                     </div>
 
                                     <Badge variant="outline" className="flex items-center gap-1 text-[10px] h-5 px-1.5">

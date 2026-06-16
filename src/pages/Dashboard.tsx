@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { fetchWithAuth } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Overview } from "@/components/dashboard/Overview"
 import { RecentSales } from "@/components/dashboard/RecentSales"
@@ -11,23 +11,20 @@ export default function Dashboard() {
 
     useEffect(() => {
         async function fetchDashboardData() {
-            const { count: customerCount } = await supabase.from('customers').select('*', { count: 'exact', head: true })
-            const { data: leads } = await supabase.from('leads').select('*')
-            const totalValue = leads?.reduce((sum, lead) => sum + (lead.value || 0), 0) || 0
-            const activeLeadsCount = leads?.filter(l => ['New', 'Contacted', 'Proposal'].includes(l.status)).length || 0
-
-            const { data: recent } = await supabase
-                .from('leads')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(5)
-
-            setStats({
-                totalCustomers: customerCount || 0,
-                totalRevenue: totalValue,
-                activeLeads: activeLeadsCount
-            })
-            setRecentLeads(recent || [])
+            try {
+                const res = await fetchWithAuth('/api/dashboard/stats')
+                if (res.ok) {
+                    const data = await res.json()
+                    setStats({
+                        totalCustomers: data.totalCustomers || 0,
+                        totalRevenue: data.totalRevenue || 0,
+                        activeLeads: data.activeLeads || 0
+                    })
+                    setRecentLeads(data.recentLeads || [])
+                }
+            } catch (err) {
+                console.error("Failed to connect to Java backend.", err)
+            }
         }
         fetchDashboardData()
     }, [])

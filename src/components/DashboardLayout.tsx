@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react"
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom"
-import { supabase } from "@/lib/supabase"
 import {
     LayoutDashboard, Users, Target, FileText, CheckSquare,
     Package, Calendar as CalendarIcon, Settings, Menu,
@@ -34,19 +33,20 @@ export default function DashboardLayout() {
     }, [])
 
     useEffect(() => {
-        async function checkUser() {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) navigate('/login')
-            else {
-                setUser(user)
-                setLoading(false)
-            }
+        const token = localStorage.getItem('nexus_token')
+        const email = localStorage.getItem('nexus_user')
+        
+        if (!token) {
+            navigate('/login')
+        } else {
+            setUser({ email })
+            setLoading(false)
         }
-        checkUser()
     }, [navigate])
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
+        localStorage.removeItem('nexus_token')
+        localStorage.removeItem('nexus_user')
         navigate('/login')
     }
 

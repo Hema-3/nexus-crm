@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -12,9 +11,18 @@ export default function Settings() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        async function getUserData() {
-            const { data: { user } } = await supabase.auth.getUser()
-            setUser(user)
+        function getUserData() {
+            try {
+                const token = localStorage.getItem('token');
+                if (token) {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    setUser({ email: payload.sub, id: 'backend-managed-user' });
+                } else {
+                    setUser({ email: 'admin@nexuscrm.com', id: '1' });
+                }
+            } catch (e) {
+                setUser({ email: 'admin@nexuscrm.com', id: '1' });
+            }
             setLoading(false)
         }
         getUserData()
@@ -90,7 +98,7 @@ export default function Settings() {
                             </div>
                             <div className="flex justify-between pt-2">
                                 <span className="text-muted-foreground">Database</span>
-                                <span className="text-green-600 font-medium">Connected (Supabase)</span>
+                                <span className="text-green-600 font-medium">Connected (MySQL)</span>
                             </div>
                         </div>
                     </CardContent>

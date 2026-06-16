@@ -1,5 +1,6 @@
+import { toast } from "sonner";
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,23 +25,24 @@ export function AddProductModal({ onProductAdded }: { onProductAdded: () => void
         e.preventDefault()
         setLoading(true)
 
-        const { error } = await supabase.from("products").insert([
-            {
-                name: formData.name,
-                price: Number(formData.price),
-                category: formData.category,
-                stock: Number(formData.stock)
-            },
-        ])
-
-        setLoading(false)
-
-        if (error) {
-            alert("Error: " + error.message)
-        } else {
+        try {
+            const res = await fetchWithAuth("/api/products", {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: formData.name,
+                    price: Number(formData.price),
+                    sku: formData.category, // Storing category in sku for now based on previous mapping
+                    stock: Number(formData.stock)
+                })
+            })
+            if (!res.ok) throw new Error("Failed to create product")
             setOpen(false)
             setFormData({ name: "", price: "", category: "Service", stock: "0" })
             onProductAdded()
+        } catch (error: any) {
+            toast.error("Error: " + error.message)
+        } finally {
+            setLoading(false)
         }
     }
 

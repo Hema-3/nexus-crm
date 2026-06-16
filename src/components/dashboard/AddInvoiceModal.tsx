@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
-import { supabase } from '@/lib/supabase'
+import { toast } from "sonner"
+import { fetchWithAuth } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,11 +33,19 @@ export function AddInvoiceModal({ onInvoiceAdded }: { onInvoiceAdded: () => void
     // Fetch Customers & Products when modal opens
     useEffect(() => {
         async function fetchData() {
-            const { data: custData } = await supabase.from('customers').select('id, full_name')
-            const { data: prodData } = await supabase.from('products').select('id, name, price')
+            try {
+                const [custRes, prodRes] = await Promise.all([
+                    fetchWithAuth('/api/customers?size=1000'),
+                    fetchWithAuth('/api/products?size=1000')
+                ])
+                const custData = await custRes.json()
+                const prodData = await prodRes.json()
 
-            setCustomers(custData || [])
-            setProducts(prodData || [])
+                setCustomers(custData.data || [])
+                setProducts(prodData.data || [])
+            } catch (err) {
+                console.error("Failed to load dropdown data:", err)
+            }
         }
         if (open) fetchData()
     }, [open])
@@ -57,30 +66,39 @@ export function AddInvoiceModal({ onInvoiceAdded }: { onInvoiceAdded: () => void
         e.preventDefault()
         setLoading(true)
 
-        const { error } = await supabase.from("invoices").insert([{
-            invoice_number: formData.invoice_number,
-            customer_id: formData.customer_id,
-            amount: formData.amount,
-            status: formData.status,
-            due_date: formData.due_date
-        }])
+        try {
+            const res = await fetchWithAuth('/api/invoices', {
+                method: 'POST',
+                body: JSON.stringify({
+                    invoiceNumber: formData.invoice_number,
+                    customerId: formData.customer_id,
+                    amount: formData.amount,
+                    status: formData.status,
+                    dueDate: formData.due_date
+                })
+            })
 
-        setLoading(false)
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || "Failed to create invoice");
+            }
 
-        if (error) {
-            alert("Error: " + error.message)
-        } else {
+            setLoading(false)
             setOpen(false)
             // Reset form with new random ID
             setFormData({
-                invoice_number: `INV-${Math.floor(Math.random() * 10000)}`,
+                invoice_number: `INV-${Math.floor(Math.random() * 100000)}`,
                 customer_id: "",
                 amount: 0,
                 status: "Pending",
                 due_date: "",
                 selected_product_id: ""
             })
+            toast.success("Invoice created successfully!")
             onInvoiceAdded()
+        } catch (error: any) {
+            setLoading(false)
+            toast.error(error.message)
         }
     }
 
@@ -110,7 +128,7 @@ export function AddInvoiceModal({ onInvoiceAdded }: { onInvoiceAdded: () => void
                             <SelectTrigger><SelectValue placeholder="Select Customer" /></SelectTrigger>
                             <SelectContent>
                                 {customers.map(c => (
-                                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                                    <SelectItem key={c.id} value={c.id.toString()}>{c.fullName || c.full_name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -125,7 +143,7 @@ export function AddInvoiceModal({ onInvoiceAdded }: { onInvoiceAdded: () => void
                             </SelectTrigger>
                             <SelectContent>
                                 {products.map(p => (
-                                    <SelectItem key={p.id} value={p.id}>
+                                    <SelectItem key={p.id} value={p.id.toString()}>
                                         {p.name} (${p.price})
                                     </SelectItem>
                                 ))}

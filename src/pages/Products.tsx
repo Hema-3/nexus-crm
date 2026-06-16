@@ -1,5 +1,6 @@
+import { toast } from "sonner";
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { fetchWithAuth } from '@/lib/api'
 import { Card, CardTitle } from '@/components/ui/card'
 import { AddProductModal } from '@/components/dashboard/AddProductModal'
 import { Input } from "@/components/ui/input"
@@ -18,28 +19,27 @@ export default function Products() {
 
     async function fetchProducts() {
         setLoading(true)
-        const from = (page - 1) * ITEMS_PER_PAGE
-        const to = from + ITEMS_PER_PAGE - 1
+        try {
+            const url = new URL(window.location.origin + '/api/products')
+            url.searchParams.append('page', page.toString())
+            url.searchParams.append('size', ITEMS_PER_PAGE.toString())
+            if (searchTerm) {
+                url.searchParams.append('search', searchTerm)
+            }
 
-        let query = supabase
-            .from('products')
-            .select('*', { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range(from, to)
-
-        if (searchTerm) {
-            query = supabase
-                .from('products')
-                .select('*', { count: 'exact' })
-                .ilike('name', `%${searchTerm}%`)
-                .range(0, ITEMS_PER_PAGE - 1)
+            const res = await fetchWithAuth(url.toString())
+            if (!res.ok) throw new Error('Failed to fetch products')
+            
+            const responseData = await res.json()
+            setProducts(responseData.data || [])
+            const total = responseData.count || 0
+            const calculatedPages = Math.ceil(total / ITEMS_PER_PAGE)
+            setTotalPages(calculatedPages > 0 ? calculatedPages : 1)
+        } catch (error) {
+            console.error("Error fetching products:", error)
+        } finally {
+            setLoading(false)
         }
-
-        const { data, count } = await query
-        setProducts(data || [])
-        const total = count || 0
-        setTotalPages(Math.ceil(total / ITEMS_PER_PAGE) || 1)
-        setLoading(false)
     }
 
     useEffect(() => {
@@ -48,9 +48,13 @@ export default function Products() {
 
     const deleteProduct = async (id: string) => {
         if (!confirm("Are you sure you want to delete this product?")) return
-        const { error } = await supabase.from('products').delete().eq('id', id)
-        if (error) alert("Error: " + error.message)
-        else fetchProducts()
+        try {
+            const res = await fetchWithAuth(`/api/products/${id}`, { method: 'DELETE' })
+            if (!res.ok) throw new Error('Failed to delete product')
+            fetchProducts()
+        } catch (error: any) {
+            toast.error("Error: " + error.message)
+        }
     }
 
     return (
@@ -84,7 +88,7 @@ export default function Products() {
                                     <CardTitle className="text-base">{prod.name}</CardTitle>
                                     <div className="flex items-center text-xs text-muted-foreground mt-0.5">
                                         <Tag className="mr-1 h-3 w-3" />
-                                        {prod.category}
+                                        {prod.sku || "Product"}
                                     </div>
                                 </div>
                             </div>
